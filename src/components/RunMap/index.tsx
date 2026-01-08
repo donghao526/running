@@ -173,6 +173,83 @@ const RunMap = ({
     };
   }, []);
 
+  // Update map view when geoData changes to fit bounds
+  useEffect(() => {
+    if (!mapRef.current || geoData.features.length === 0) {
+      return;
+    }
+    
+    const map = mapRef.current.getMap();
+    
+    // Wait for map to be loaded
+    const updateMap = () => {
+      if (!map.loaded()) {
+        map.once('load', updateMap);
+        return;
+      }
+      
+      try {
+        const coordinates: Coordinate[] = [];
+        
+        geoData.features.forEach((feature) => {
+          const geometry = feature.geometry;
+          
+          if (geometry.type === 'LineString' && geometry.coordinates.length > 0) {
+            coordinates.push(...(geometry.coordinates as Coordinate[]));
+          } else if (geometry.type === 'Polygon' && geometry.coordinates.length > 0) {
+            // Polygon coordinates are arrays of rings, take the first ring
+            const ring = geometry.coordinates[0] as Coordinate[];
+            if (ring.length > 0) {
+              coordinates.push(...ring);
+            }
+          } else if (geometry.type === 'MultiPolygon' && geometry.coordinates.length > 0) {
+            // MultiPolygon coordinates are arrays of polygons, each polygon has rings
+            geometry.coordinates.forEach((polygon) => {
+              const ring = polygon[0] as Coordinate[];
+              if (ring.length > 0) {
+                coordinates.push(...ring);
+              }
+            });
+          }
+        });
+        
+        if (coordinates.length > 0) {
+          const lngs = coordinates.map(c => c[0]);
+          const lats = coordinates.map(c => c[1]);
+          
+          // Check if bounds are valid
+          if (lngs.length > 0 && lats.length > 0) {
+            const bounds: [[number, number], [number, number]] = [
+              [Math.min(...lngs), Math.min(...lats)],
+              [Math.max(...lngs), Math.max(...lats)],
+            ];
+            
+            // Only fit bounds if they are different from current view
+            const currentCenter = map.getCenter();
+            const currentZoom = map.getZoom();
+            const centerLng = (bounds[0][0] + bounds[1][0]) / 2;
+            const centerLat = (bounds[0][1] + bounds[1][1]) / 2;
+            
+            // Only update if significantly different
+            if (
+              Math.abs(currentCenter.lng - centerLng) > 0.001 ||
+              Math.abs(currentCenter.lat - centerLat) > 0.001
+            ) {
+              map.fitBounds(bounds, {
+                padding: 50,
+                duration: 1000,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error fitting bounds:', error);
+      }
+    };
+    
+    updateMap();
+  }, [geoData]);
+
   return (
     <Map
       {...viewState}
@@ -204,6 +281,8 @@ const RunMap = ({
           }}
           filter={filterCountries}
         />
+      </Source>
+      <Source id="runs" type="geojson" data={geoData}>
         <Layer
           id="runs2"
           type="line"

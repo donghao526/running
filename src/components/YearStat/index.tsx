@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import Stat from '@/components/Stat';
 import useActivities from '@/hooks/useActivities';
-import { formatPace } from '@/utils/utils';
+import { formatPace, Activity } from '@/utils/utils';
 import useHover from '@/hooks/useHover';
 import { yearStats } from '@assets/index';
 import { loadSvgComponent } from '@/utils/svgUtils';
@@ -52,7 +52,7 @@ const YearStat = ({
     }
   });
   sumDistance = parseFloat((sumDistance / 1000.0).toFixed(1));
-  sumElevationGain = sumElevationGain.toFixed(0);
+  sumElevationGain = parseFloat(sumElevationGain.toFixed(0));
   const avgPace = formatPace(totalMetersAvail / totalSecondsAvail);
   const hasHeartRate = !(heartRate === 0);
   const avgHeartRate = (heartRate / (runs.length - heartRateNullCount)).toFixed(

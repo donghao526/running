@@ -11,7 +11,7 @@ module.exports = {
       {
         name: '主页',
         url: 'https://donghao526.github.io',
-      }
+      },
     ],
   },
   plugins: [

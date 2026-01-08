@@ -36,13 +36,13 @@ export interface Activity {
   distance: number;
   moving_time: string;
   type: string;
-  subtype: string;
+  subtype?: string;
   start_date: string;
   start_date_local: string;
   location_country?: string | null;
   summary_polyline?: string | null;
   average_heartrate?: number | null;
-  elevation_gain: number | null;
+  elevation_gain?: number | null;
   average_speed: number;
   streak: number;
 }

@@ -94,8 +94,14 @@ const Index = () => {
     if (!lastRun) {
       return;
     }
-    setGeoData(geoJsonForRuns(selectedRuns));
+    const newGeoData = geoJsonForRuns(selectedRuns);
+    setGeoData(newGeoData);
     setTitle(titleForShow(lastRun));
+    
+    // Update viewState to fit the new geoData bounds
+    const newBounds = getBoundsForGeoData(newGeoData);
+    setViewState(newBounds);
+    
     clearInterval(intervalId);
     scrollToMap();
   };

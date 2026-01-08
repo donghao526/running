@@ -1,4 +1,4 @@
-import { locationForRun, titleForRun } from '@/utils/utils';
+import { locationForRun, titleForRun, Activity } from '@/utils/utils';
 import activities from '@/static/activities.json';
 
 // standardize country names for consistency between mapbox and activities data
@@ -21,7 +21,7 @@ const useActivities = () => {
   let years: Set<string> = new Set();
   let thisYear = '';
 
-  activities.forEach((run) => {
+  activities.forEach((run: Activity) => {
     const location = locationForRun(run);
 
     const periodName = titleForRun(run);
@@ -46,7 +46,7 @@ const useActivities = () => {
   if (years) [thisYear] = yearsArray; // set current year as first one of years array
 
   return {
-    activities,
+    activities: activities as Activity[],
     years: yearsArray,
     countries: [...countries],
     provinces: [...provinces],
