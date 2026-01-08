@@ -1,4 +1,3 @@
-import MapboxLanguage from '@mapbox/mapbox-gl-language';
 import React, { useRef, useCallback, useState, useEffect } from 'react';
 import Map, {
   Layer,
@@ -8,11 +7,12 @@ import Map, {
   MapRef,
 } from 'react-map-gl';
 import { MapInstance } from 'react-map-gl/src/types/lib';
+import maplibregl from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 import useActivities from '@/hooks/useActivities';
 import {
   IS_CHINESE,
   ROAD_LABEL_DISPLAY,
-  MAPBOX_TOKEN,
   PROVINCE_FILL_COLOR,
   COUNTRY_FILL_COLOR,
   USE_DASH_LINE,
@@ -79,12 +79,11 @@ const RunMap = ({
     (ref: MapRef) => {
       if (ref !== null) {
         const map = ref.getMap();
-        if (map && IS_CHINESE) {
-          map.addControl(new MapboxLanguage({ defaultLanguage: 'zh-Hans' }));
-        }
+        // MapTiler styles support multiple languages natively
+        // For Chinese language support, MapTiler styles can be configured with language parameter
         // all style resources have been downloaded
         // and the first visually complete rendering of the base style has occurred.
-        // it's odd. when use style other than mapbox, the style.load event is not triggered.Add commentMore actions
+        // it's odd. when use style other than mapbox (like maptiler), the style.load event is not triggered.
         // so I use data event instead of style.load event and make sure we handle it only once.
         map.on('data', (event) => {
           if (event.dataType !== 'style' || mapRef.current) {
@@ -182,7 +181,7 @@ const RunMap = ({
       mapStyle={mapStyle}
       ref={mapRefCallback}
       cooperativeGestures={isTouchDevice()}
-      mapboxAccessToken={MAPBOX_TOKEN}
+      mapLib={maplibregl}
     >
       <RunMapButtons changeYear={changeYear} thisYear={thisYear} />
       <Source id="data" type="geojson" data={geoData}>
