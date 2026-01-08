@@ -181,6 +181,7 @@ const RunMap = ({
       mapStyle={mapStyle}
       ref={mapRefCallback}
       cooperativeGestures={isTouchDevice()}
+      // @ts-expect-error - maplibre-gl types are compatible but TypeScript doesn't recognize it
       mapLib={maplibregl}
     >
       <RunMapButtons changeYear={changeYear} thisYear={thisYear} />
