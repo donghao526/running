@@ -81,9 +81,18 @@ const Index = () => {
   const locateActivity = (runIds: RunIds) => {
     const ids = new Set(runIds);
 
-    const selectedRuns = !runIds.length
-      ? runs
-      : runs.filter((r: any) => ids.has(r.run_id));
+    let selectedRuns: Activity[] = [];
+    if (!runIds.length) {
+      selectedRuns = runs;
+    } else {
+      // First, try to find runs in the current filtered list
+      selectedRuns = runs.filter((r: any) => ids.has(r.run_id));
+      
+      // If not found in filtered list, try the complete activities list
+      if (!selectedRuns.length) {
+        selectedRuns = activities.filter((r: any) => ids.has(r.run_id));
+      }
+    }
 
     if (!selectedRuns.length) {
       return;
@@ -94,6 +103,7 @@ const Index = () => {
     if (!lastRun) {
       return;
     }
+    
     const newGeoData = geoJsonForRuns(selectedRuns);
     setGeoData(newGeoData);
     setTitle(titleForShow(lastRun));

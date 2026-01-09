@@ -254,9 +254,8 @@ const colorForRun = (run: Activity): string => {
   }
 };
 
-const geoJsonForRuns = (runs: Activity[]): FeatureCollection<LineString> => ({
-  type: 'FeatureCollection',
-  features: runs.map((run) => {
+const geoJsonForRuns = (runs: Activity[]): FeatureCollection<LineString> => {
+  const features = runs.map((run) => {
     const points = pathForRun(run);
     const color = colorForRun(run);
     return {
@@ -269,8 +268,13 @@ const geoJsonForRuns = (runs: Activity[]): FeatureCollection<LineString> => ({
         coordinates: points,
       },
     };
-  }),
-});
+  });
+  
+  return {
+    type: 'FeatureCollection',
+    features: features as Feature<LineString>[],
+  };
+};
 
 const geoJsonForMap = (): FeatureCollection<RPGeometry> => ({
   type: 'FeatureCollection',
@@ -383,6 +387,9 @@ const getBoundsForGeoData = (
   let { longitude, latitude, zoom } = viewState;
   if (features.length > 1) {
     zoom = 11.5;
+  } else if (features.length === 1) {
+    // For single activity, ensure zoom level is appropriate for viewing the entire run
+    zoom = Math.max(zoom, 12);
   }
   return { longitude, latitude, zoom };
 };
