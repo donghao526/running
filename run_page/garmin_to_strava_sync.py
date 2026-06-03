@@ -1,6 +1,7 @@
 """
 new garmin ids to strava;
 not the same logic as nike_to_strava_sync
+Simplified strategy: only sync latest 10 activities to stay within Strava API rate limits
 """
 
 import argparse
@@ -66,7 +67,11 @@ if __name__ == "__main__":
     )
     loop.run_until_complete(future)
     new_ids, id2title = future.result()
-    print(f"To upload to strava {len(new_ids)} files")
+    
+    # Only upload latest 10 activities to avoid Strava API rate limits
+    new_ids = new_ids[:10] if len(new_ids) > 10 else new_ids
+    
+    print(f"To upload to strava {len(new_ids)} files (max 10 per run)")
     index = 1
     for i in new_ids:
         f = os.path.join(folder, f"{i}.{file_type}")
@@ -79,8 +84,10 @@ if __name__ == "__main__":
 
     # Run the strava sync
     if len(new_ids) > 0:
+        print("Running Strava sync to update database...")
         run_strava_sync(
             options.strava_client_id,
             options.strava_client_secret,
             options.strava_refresh_token,
         )
+        print("Strava sync completed successfully!")
