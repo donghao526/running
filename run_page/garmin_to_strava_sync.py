@@ -61,6 +61,7 @@ if __name__ == "__main__":
             is_only_running,
             folder,
             file_type,
+            max_activities=10,  # Limit to 10 most recent activities
         )
     )
     loop.run_until_complete(future)
