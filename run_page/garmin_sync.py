@@ -308,12 +308,20 @@ async def download_garmin_data(
         traceback.print_exc()
 
 
-async def get_activity_id_list(client, start=0):
+async def get_activity_id_list(client, start=0, max_count=None):
+    """Get activity ID list from Garmin, optionally limiting to max_count most recent activities."""
     activities = await client.get_activities(start, 100)
     if len(activities) > 0:
         ids = list(map(lambda a: str(a.get("activityId", "")), activities))
         print("Syncing Activity IDs")
-        return ids + await get_activity_id_list(client, start + 100)
+        
+        # If we've reached the desired count, stop fetching
+        if max_count is not None and len(ids) >= max_count:
+            return ids[:max_count]
+        
+        remaining = None if max_count is None else (max_count - len(ids))
+        next_ids = await get_activity_id_list(client, start + 100, remaining)
+        return ids + next_ids
     else:
         return []
 
@@ -354,13 +362,16 @@ def get_garmin_summary_infos(activity_summary, activity_id):
 
 
 async def download_new_activities(
-    secret_string, auth_domain, downloaded_ids, is_only_running, folder, file_type
+    secret_string, auth_domain, downloaded_ids, is_only_running, folder, file_type, max_activities=10
 ):
+    """
+    Download new activities from Garmin, limiting to max_activities most recent ones.
+    """
     client = Garmin(secret_string, auth_domain, is_only_running)
-    # because I don't find a para for after time, so I use garmin-id as filename
-    # to find new run to generate
-    activity_ids = await get_activity_id_list(client)
+    # Fetch only the most recent max_activities that haven't been downloaded yet
+    activity_ids = await get_activity_id_list(client, max_count=max_activities)
     to_generate_garmin_ids = list(set(activity_ids) - set(downloaded_ids))
+    print(f"Syncing Activity IDs")
     print(f"{len(to_generate_garmin_ids)} new activities to be downloaded")
 
     to_generate_garmin_id2title = {}
@@ -457,6 +468,7 @@ if __name__ == "__main__":
             is_only_running,
             folder,
             file_type,
+            max_activities=10,
         )
     )
     loop.run_until_complete(future)
