@@ -58,20 +58,33 @@ class Garmin:
             if auth_domain and str(auth_domain).upper() == "CN"
             else GARMIN_COM_URL_DICT
         )
+        self.garth_client = garth.Client()
         if auth_domain and str(auth_domain).upper() == "CN":
-            garth.configure(domain="garmin.cn", ssl_verify=False)
+            self.garth_client.configure(domain="garmin.cn", ssl_verify=False)
         else:
-            garth.configure(domain="garmin.com")
+            self.garth_client.configure(domain="garmin.com", ssl_verify=False)
         self.modern_url = self.URL_DICT.get("MODERN_URL")
-        garth.client.loads(secret_string)
-        if garth.client.oauth2_token.expired:
-            garth.client.refresh_oauth2()
+        self.garth_client.loads(secret_string)
+        if self.garth_client.oauth2_token.expired:
+            for attempt in range(5):
+                try:
+                    self.garth_client.refresh_oauth2()
+                    break
+                except Exception as e:
+                    if ("429" in str(e) or "Too Many Requests" in str(e)) and attempt < 4:
+                        sleep_time = 2 ** attempt
+                        print(
+                            f"Refresh token rate limited (429). Sleeping {sleep_time} seconds before retry (attempt {attempt + 1}/5)"
+                        )
+                        time.sleep(sleep_time)
+                    else:
+                        raise
 
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
             "origin": self.URL_DICT.get("SSO_URL_ORIGIN"),
             "nk": "NT",
-            "Authorization": str(garth.client.oauth2_token),
+            "Authorization": str(self.garth_client.oauth2_token),
         }
         self.is_only_running = is_only_running
         self.upload_url = self.URL_DICT.get("UPLOAD_URL")
