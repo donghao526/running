@@ -1,7 +1,6 @@
 """
 new garmin ids to strava;
 not the same logic as nike_to_strava_sync
-Simplified strategy: only sync latest 10 activities to stay within Strava API rate limits
 """
 
 import argparse
@@ -29,14 +28,29 @@ if __name__ == "__main__":
         action="store_true",
         help="if garmin account is cn",
     )
-    parser.add_argument(
+    file_type_group = parser.add_mutually_exclusive_group()
+    file_type_group.add_argument(
+        "--gpx",
+        dest="download_file_type",
+        action="store_const",
+        const="gpx",
+        help="download GPX files (not recommended for treadmill activities)",
+    )
+    file_type_group.add_argument(
         "--tcx",
         dest="download_file_type",
         action="store_const",
         const="tcx",
-        default="gpx",
-        help="to download personal documents or ebook",
+        help="download TCX files",
     )
+    file_type_group.add_argument(
+        "--fit",
+        dest="download_file_type",
+        action="store_const",
+        const="fit",
+        help="download FIT files (recommended for Strava uploads)",
+    )
+    parser.set_defaults(download_file_type="fit")
     options = parser.parse_args()
     strava_client = make_strava_client(
         options.strava_client_id,
@@ -63,16 +77,11 @@ if __name__ == "__main__":
             is_only_running,
             folder,
             file_type,
-            max_activities=10,  # Limit to 10 most recent activities
         )
     )
     loop.run_until_complete(future)
     new_ids, id2title = future.result()
-    
-    # Only upload latest 10 activities to avoid Strava API rate limits
-    new_ids = new_ids[:10] if len(new_ids) > 10 else new_ids
-    
-    print(f"To upload to strava {len(new_ids)} files (max 10 per run)")
+    print(f"To upload to strava {len(new_ids)} files")
     index = 1
     for i in new_ids:
         f = os.path.join(folder, f"{i}.{file_type}")
@@ -84,11 +93,8 @@ if __name__ == "__main__":
         time.sleep(1)
 
     # Run the strava sync
-    if len(new_ids) > 0:
-        print("Running Strava sync to update database...")
-        run_strava_sync(
-            options.strava_client_id,
-            options.strava_client_secret,
-            options.strava_refresh_token,
-        )
-        print("Strava sync completed successfully!")
+    run_strava_sync(
+        options.strava_client_id,
+        options.strava_client_secret,
+        options.strava_refresh_token,
+    )
