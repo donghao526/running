@@ -20,7 +20,6 @@ from lxml import etree
 import aiofiles
 import garth
 import httpx
-import requests
 from config import FOLDER_DICT, JSON_FILE, SQL_FILE
 from garmin_device_adaptor import process_garmin_data
 from utils import make_activities_file
@@ -61,45 +60,10 @@ class Garmin:
         )
         if auth_domain and str(auth_domain).upper() == "CN":
             garth.configure(domain="garmin.cn", ssl_verify=False)
-        else:
-            garth.configure(domain="garmin.com")
         self.modern_url = self.URL_DICT.get("MODERN_URL")
         garth.client.loads(secret_string)
-
-        # Refresh oauth2 token with retries and backoff to handle intermittent 429s
         if garth.client.oauth2_token.expired:
-            max_retries = 5
-            for attempt in range(max_retries):
-                try:
-                    garth.client.refresh_oauth2()
-                    break
-                except requests.exceptions.HTTPError as e:
-                    status = None
-                    try:
-                        status = e.response.status_code if e.response is not None else None
-                    except Exception:
-                        status = None
-                    # If we are rate-limited, respect Retry-After header if present; otherwise exponential backoff
-                    if status == 429:
-                        ra = None
-                        try:
-                            ra = e.response.headers.get("Retry-After") if e.response is not None else None
-                        except Exception:
-                            ra = None
-                        wait = int(ra) if ra and str(ra).isdigit() else (2 ** attempt)
-                        logger.warning(
-                            "Refresh token rate limited (429). Sleeping %s seconds before retry (attempt %s/%s)",
-                            wait,
-                            attempt + 1,
-                            max_retries,
-                        )
-                        time.sleep(wait)
-                        continue
-                    # For other errors, do a short backoff and retry a few times
-                    if attempt == max_retries - 1:
-                        # re-raise the last exception if we've exhausted retries
-                        raise
-                    time.sleep(2 ** attempt)
+            garth.client.refresh_oauth2()
 
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.88 Safari/537.36",
@@ -113,39 +77,29 @@ class Garmin:
 
     async def fetch_data(self, url, retrying=False):
         """
-        Fetch and return data with retries on rate limits and transient errors
+        Fetch and return data
         """
-        retries = 5
-        backoff_base = 1
-        for attempt in range(retries):
-            try:
-                response = await self.req.get(url, headers=self.headers)
-                if response.status_code == 429:
-                    ra = response.headers.get("Retry-After")
-                    wait = int(ra) if ra and str(ra).isdigit() else backoff_base * (2 ** attempt)
-                    logger.warning(
-                        "Received 429 from %s, sleeping %s seconds before retry (attempt %s/%s)",
-                        url,
-                        wait,
-                        attempt + 1,
-                        retries,
-                    )
-                    await asyncio.sleep(wait)
-                    continue
-                logger.debug(f"fetch_data got response code {response.status_code}")
-                response.raise_for_status()
-                # Prefer JSON but fall back to text if the response is not JSON
-                try:
-                    return response.json()
-                except ValueError:
-                    return response.text
-            except Exception as err:
+        try:
+            response = await self.req.get(url, headers=self.headers)
+            if response.status_code == 429:
+                raise GarminConnectTooManyRequestsError("Too many requests")
+            logger.debug(f"fetch_data got response code {response.status_code}")
+            response.raise_for_status()
+            return response.json()
+        except Exception as err:
+            print(err)
+            if retrying:
                 logger.debug(
-                    "Exception in fetch_data (attempt %s/%s): %s", attempt + 1, retries, err
+                    "Exception occurred during data retrieval, relogin without effect: %s"
+                    % err
                 )
-                if attempt == retries - 1:
-                    raise GarminConnectConnectionError("Error connecting") from err
-                await asyncio.sleep(backoff_base * (2 ** attempt))
+                raise GarminConnectConnectionError("Error connecting") from err
+            else:
+                logger.debug(
+                    "Exception occurred during data retrieval - perhaps session expired - trying relogin: %s"
+                    % err
+                )
+                await self.fetch_data(url, retrying=True)
 
     async def get_activities(self, start, limit):
         """
@@ -198,14 +152,10 @@ class Garmin:
                 # just pass for now
                 continue
             try:
-                if res.status_code == 409:
-                    print("garmin upload: activity already exists (409)")
-                else:
-                    res.raise_for_status()
-                    resp = res.json()["detailedImportResult"]
-                    print("garmin upload success: ", resp)
+                resp = res.json()["detailedImportResult"]
+                print("garmin upload success: ", resp)
             except Exception as e:
-                print(f"garmin upload failed (status {res.status_code}): {e}")
+                print("garmin upload failed: ", e)
         await self.req.aclose()
 
     async def upload_activity_from_file(self, file):
@@ -225,14 +175,10 @@ class Garmin:
             # just pass for now
             return
         try:
-            if res.status_code == 409:
-                print("garmin upload: activity already exists (409)")
-                return
-            res.raise_for_status()
             resp = res.json()["detailedImportResult"]
             print("garmin upload success: ", resp)
         except Exception as e:
-            print(f"garmin upload failed (status {res.status_code}): {e}")
+            print("garmin upload failed: ", e)
 
     async def upload_activities_files(self, files):
         print("start upload activities to garmin!")
@@ -295,18 +241,6 @@ def add_summary_info(file_data, summary_infos, fields=None):
     if summary_infos is None:
         return file_data
     try:
-        # If file_data is not XML (e.g. an error page or plain text), skip parsing
-        if isinstance(file_data, (bytes, bytearray)):
-            s = file_data.lstrip()
-            if not s.startswith(b"<"):
-                print("File data is not XML, skipping add_summary_info")
-                return file_data
-        else:
-            s = str(file_data).lstrip()
-            if not s.startswith("<"):
-                print("File data is not XML, skipping add_summary_info")
-                return file_data
-
         root = etree.fromstring(file_data)
         extensions_node = etree.Element("extensions")
         extensions_node.text = "\n"
