@@ -1,4 +1,4 @@
-name: Run Gramin International Sync
+name: Run Gramin International To Strava Sync
 
 on:
   workflow_dispatch:
