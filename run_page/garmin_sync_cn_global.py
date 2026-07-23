@@ -61,7 +61,6 @@ if __name__ == "__main__":
             is_only_running,
             folder,
             "fit",
-            max_activities=10,
         )
     )
     loop.run_until_complete(future)
