@@ -7,7 +7,7 @@ interface ILightsProps {
 
 const LightsControl = ({ setLights, lights }: ILightsProps) => {
   return (
-    <div className={'mapboxgl-ctrl mapboxgl-ctrl-group ' + styles.lights}>
+    <div className={'maplibregl-ctrl maplibregl-ctrl-group ' + styles.lights}>
       <button
         type="button"
         aria-label={lights ? 'Hide base map' : 'Show base map'}
@@ -17,7 +17,7 @@ const LightsControl = ({ setLights, lights }: ILightsProps) => {
         onClick={() => setLights(!lights)}
       >
         <span
-          className="mapboxgl-ctrl-icon"
+          className="maplibregl-ctrl-icon"
           aria-hidden="true"
           title={'Turn ' + `${lights ? 'off' : 'on'}` + ' the Light'}
         ></span>
