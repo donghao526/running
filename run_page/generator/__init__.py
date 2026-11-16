@@ -5,16 +5,16 @@ import sys
 import arrow
 import stravalib
 from gpxtrackposter import track_loader
-from sqlalchemy import func
-
 from polyline_processor import filter_out
+from sqlalchemy import func
+from synced_data_file_logger import save_synced_data_file_list
 
 from .db import Activity, init_db, update_or_create_activity
 
-from synced_data_file_logger import save_synced_data_file_list
-
-
-IGNORE_BEFORE_SAVING = os.getenv("IGNORE_BEFORE_SAVING", False)
+IGNORE_BEFORE_SAVING = os.getenv(
+    "IGNORE_BEFORE_SAVING",
+    False,  # noqa: PLW1508
+)
 
 
 class Generator:
@@ -54,7 +54,7 @@ class Generator:
 
         print("Start syncing")
         if force:
-            filters = {"before": datetime.datetime.utcnow()}
+            filters = {"before": datetime.datetime.now(datetime.UTC)}
         else:
             last_activity = self.session.query(func.max(Activity.start_date)).scalar()
             if last_activity:
@@ -62,16 +62,15 @@ class Generator:
                 last_activity_date = last_activity_date.shift(days=-7)
                 filters = {"after": last_activity_date.datetime}
             else:
-                filters = {"before": datetime.datetime.utcnow()}
+                filters = {"before": datetime.datetime.now(datetime.UTC)}
 
         for activity in self.client.get_activities(**filters):
             if self.only_run and activity.type != "Run":
                 continue
-            if IGNORE_BEFORE_SAVING:
-                if activity.map and activity.map.summary_polyline:
-                    activity.map.summary_polyline = filter_out(
-                        activity.map.summary_polyline
-                    )
+            if IGNORE_BEFORE_SAVING and activity.map and activity.map.summary_polyline:
+                activity.map.summary_polyline = filter_out(
+                    activity.map.summary_polyline
+                )
             #  strava use total_elevation_gain as elevation_gain
             activity.elevation_gain = activity.total_elevation_gain
             activity.subtype = activity.type
@@ -83,7 +82,7 @@ class Generator:
             sys.stdout.flush()
         self.session.commit()
 
-    def sync_from_data_dir(self, data_dir, file_suffix="gpx", activity_title_dict={}):
+    def sync_from_data_dir(self, data_dir, file_suffix="gpx", activity_title_dict=None):
         loader = track_loader.TrackLoader()
         tracks = loader.load_tracks(
             data_dir, file_suffix=file_suffix, activity_title_dict=activity_title_dict
@@ -130,21 +129,19 @@ class Generator:
 
     def load(self):
         # if sub_type is not in the db, just add an empty string to it
-        activities = (
-            self.session.query(Activity)
-            .filter(Activity.distance > 0.1)
-            .order_by(Activity.start_date_local)
-        )
+        query = self.session.query(Activity).filter(Activity.distance > 0.1)
+        if self.only_run:
+            query = query.filter(Activity.type == "Run")
+
+        activities = query.order_by(Activity.start_date_local)
         activity_list = []
 
         streak = 0
         last_date = None
         for activity in activities:
-            if self.only_run and activity.type != "Run":
-                continue
             # Determine running streak.
-            date = datetime.datetime.strptime(
-                activity.start_date_local, "%Y-%m-%d %H:%M:%S"
+            date = datetime.datetime.strptime(  # noqa: DTZ007
+                activity.start_date_local, "%Y-%m-%d %H:%M:%S"  # type: ignore
             ).date()
             if last_date is None:
                 streak = 1
@@ -155,21 +152,25 @@ class Generator:
             else:
                 assert date > last_date
                 streak = 1
-            activity.streak = streak
+            activity.streak = streak  # type: ignore
             last_date = date
+            exported_activity = activity.to_dict()
             if not IGNORE_BEFORE_SAVING:
-                activity.summary_polyline = filter_out(activity.summary_polyline)
-            activity_list.append(activity.to_dict())
+                exported_activity["summary_polyline"] = filter_out(
+                    exported_activity["summary_polyline"]
+                )
+            activity_list.append(exported_activity)
 
+        self.session.commit()
         return activity_list
 
     def get_old_tracks_ids(self):
         try:
             activities = self.session.query(Activity).all()
             return [str(a.run_id) for a in activities]
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             # pass the error
-            print(f"something wrong with {str(e)}")
+            print(f"something wrong with {e!s}")
             return []
 
     def get_old_tracks_dates(self):
@@ -180,7 +181,7 @@ class Generator:
                 .all()
             )
             return [str(a.start_date_local) for a in activities]
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             # pass the error
-            print(f"something wrong with {str(e)}")
+            print(f"something wrong with {e!s}")
             return []
