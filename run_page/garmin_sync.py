@@ -72,9 +72,11 @@ class Garmin:
                 try:
                     self.garth_client.refresh_oauth2()
                     break
-                except Exception as e:
-                    if ("429" in str(e) or "Too Many Requests" in str(e)) and attempt < 4:
-                        sleep_time = 2 ** attempt
+                except Exception as e:  # noqa: BLE001
+                    if (
+                        "429" in str(e) or "Too Many Requests" in str(e)
+                    ) and attempt < 4:
+                        sleep_time = 2**attempt
                         print(
                             f"Refresh token rate limited (429). Sleeping {sleep_time} seconds before retry (attempt {attempt + 1}/5)"
                         )
