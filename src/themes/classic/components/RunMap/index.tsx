@@ -14,7 +14,10 @@ import Map, {
   MapInstance,
 } from 'react-map-gl/maplibre';
 import * as maplibregl from 'maplibre-gl';
+import maplibreWorkerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import 'maplibre-gl/dist/maplibre-gl.css';
+
+maplibregl.setWorkerUrl(maplibreWorkerUrl);
 import useActivities from '../../hooks/useActivities';
 import {
   IS_CHINESE,
