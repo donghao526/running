@@ -134,9 +134,12 @@ def process_fit(file_content, fix_gcj02=True):
                 msg.definition_message = None
                 changed = True
             lap_index += 1
-        elif isinstance(msg, SessionMessage):
-            if timeline and getattr(msg, "start_position_lat", None) is None:
-                open_fields(msg)
+        elif (
+            isinstance(msg, SessionMessage)
+            and timeline
+            and getattr(msg, "start_position_lat", None) is None
+        ):
+            open_fields(msg)
                 msg.start_position_lat, msg.start_position_long = (
                     timeline[0][1],
                     timeline[0][2],

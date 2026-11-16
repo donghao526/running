@@ -62,5 +62,5 @@ dev = [
 ]
 
 [tool.ruff.lint]
-ignore = ["RUF100"]
+ignore = ["RUF100", "SIM102"]
 
