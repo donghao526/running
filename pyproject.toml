@@ -60,3 +60,7 @@ packages = ["run_page"]
 dev = [
     "pytest>=9.0.3",
 ]
+
+[tool.ruff.lint]
+ignore = ["RUF100"]
+
