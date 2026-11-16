@@ -283,9 +283,8 @@ class YearSummaryDrawer(TracksDrawer):
                     total_time_s += moving_time.total_seconds()
                 else:
                     total_time_s += float(moving_time)
-            elif (
-                isinstance(t.end_time, datetime.datetime)
-                and isinstance(t.start_time, datetime.datetime)
+            elif isinstance(t.end_time, datetime.datetime) and isinstance(
+                t.start_time, datetime.datetime
             ):
                 total_time_s += (t.end_time - t.start_time).total_seconds()
 
